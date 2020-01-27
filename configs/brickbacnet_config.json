@@ -1,0 +1,6 @@
+{
+    "object_custom_fields": {
+        "jci_name": "jciName"
+    },
+    "property_filters": ["addr", "max_apdu", "segmentationSupported", "vendor_id", "device_identifier", "instance", "index", "object_identifier"]
+}

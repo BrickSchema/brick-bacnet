@@ -1,0 +1,24 @@
+diff --git a/basetypes.py b/basetypes.py
+index 1bc4545..5064220 100644
+--- a/basetypes.py
++++ b/basetypes.py
+@@ -1510,6 +1510,7 @@ class PropertyIdentifier(Enumerated):
+         , 'zoneFrom':320
+         , 'zoneMembers':165
+         , 'zoneTo':321
++        , 'jciName':2390
+         }
+ 
+ class Reliability(Enumerated):
+diff --git a/object.py b/object.py
+index 0115050..082d4fe 100644
+--- a/object.py
++++ b/object.py
+@@ -467,6 +467,7 @@ class Object:
+     properties = \
+         [ ObjectIdentifierProperty('objectIdentifier', ObjectIdentifier, optional=False)
+         , ReadableProperty('objectName', CharacterString, optional=False)
++        , OptionalProperty('jciName', CharacterString)
+         , OptionalProperty('description', CharacterString)
+         , OptionalProperty('profileName', CharacterString)
+         , ReadableProperty('propertyList', ArrayOf(PropertyIdentifier))
