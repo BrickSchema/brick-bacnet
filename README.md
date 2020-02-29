@@ -1,13 +1,35 @@
-# discovery.py
+BACnet2Brick
+------------
+A virtual BACnet device that can connect BACnet to Brick Server.
 
-script to discover bacnet devices, built using [bacpypes](https://github.com/JoelBender/bacpypes). 
+# Features
+- Discovery of bacnet devices and objects.
+- Registeration of the identified devices and objecst to a Brick Server.
+- Periodic publication of the data to Brick Server.
+- A gRPC server that can receive actuation request, which is delivered to actual BACnet devices.
 
-### Instructions:
-1. install bacpypes
-2. apply patch `BACKPYPES_JCI.patch` to the installed files. (usually at `<env path>/lib/python3.6/site-packages/bacpypes`. This lets the script read JCI_NAME property.
-3. Run discovery2.py .  Edit according to needs. By default it finds all objects and properties and writes then to `full_devices.json` and `devices.json`. Make sure `BACpypes.ini` is in the same directory as `disovery2.py`. Else edit `INI_FILE`.
-4. Additional examples are provided at the end of the file.
+# Installation
+- TODO for Python
+- (Optional): Install Brick Server. This is necessary if you want to communicate with a Brick Server.
+- You need to have a machine (raspberry pi, a VM, or any Linux hosting machine) that have accessibility of both BACnet devices (BACnet/IP) and your Brick Server (e.g., the Internet).
 
-### Additional References:
-1. OpenAgricultureFoundation's [bacnet wrapper](https://github.com/OpenAgricultureFoundation/openag-device-software/blob/830011c0669eb7dbfc3361dafbfa065ba6a6a98f/device/peripherals/modules/bacnet/bnet_wrapper.py)
-2. ReadProperty.py and WhoIsIAm.py in bacpypes [samples](https://github.com/JoelBender/bacpypes/tree/master/samples)
+# How to use it?
+- `b2b --help` to list available commands.
+    - `b2b discovery --help` to get help for discovery
+    - `b2b connector --help` to get help for the connector
+- Configuration: Update `configs/b2b_config.json.template`.
+- `b2b discovery`: This discovers all the BACnet devices and objects and store them in a sqlite db.
+- `b2b connector`: This periodically polls all the points and push them to a Brick Server. When activated, it can receive actuation requests as well.
+
+
+# Tutorial
+1. Make sure your hosting machine has the connection to both BACnet devices and a Brcik Server.
+2. Create `configs/b2b_config.json` based on `configs/b2b_config.json.template`.
+3. Run `b2b discovery --register-brickserver`` to automatically register all the discovered devices and objects in to the Brick Server.
+4. Run `b2b connector` to periodically push all the data to the Brick Server.
+    - Use ``--receive-actuation``
+
+
+# The current security issues
+- Currently actuation has no auth mechanism. One should carefully activate it like behind proper `iptables` rules.
+

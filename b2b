@@ -44,9 +44,9 @@ class BacnetConn(object):
             default="configs/BACpypes.ini",
         )
         parser.add_argument(
-            "--brickbacnet-config",
+            "--b2b-config",
             help="The location of brickbacnet config file in JSON.",
-            default="configs/brickbacnet_config.json"
+            default="configs/b2b_config.json"
         )
         parser.add_argument(
             "--bacnet-devices-file",
@@ -100,12 +100,12 @@ class BacnetConn(object):
         args = parser.parse_args(sys.argv[2:])
         self.BASE = Namespace(args.base_namespace)
         self.BRICK = Namespace(BRICK_NS_TEMPLATE.format(version=args.brick_version))
-        with open(args.brickbacnet_config, 'r') as fp:
-            brickbacnet_config = json.load(fp)
-        self.property_filters = brickbacnet_config["property_filters"]
+        with open(args.b2b_config, 'r') as fp:
+            config = json.load(fp)
+        self.property_filters = config ["property_filters"]
 
         # Set up threads for BACpypes
-        bacnet_discovery = BacnetDiscovery(args.bacpypes_ini, brickbacnet_config)
+        bacnet_discovery = BacnetDiscovery(args.bacpypes_ini, config)
         time.sleep(1)
         run_thread = threading.Thread(target=bacpypes_run)
         run_thread.daemon = True
@@ -131,8 +131,8 @@ class BacnetConn(object):
 
         # Register the identifeid devies and objects to Brick Server
         if args.register_brickserver:
-            bs_config = json.load(open(args.brickserver_config, 'r'))
-            self.brickserver = BrickServer(bs_config['hostname'], bs_config['jwt_token'])
+            self.brickserver = BrickServer(config['brickserver']['hostname'],
+                                           config['brickserver']['jwt_token'])
             self.brickserver.register_graph(g)
 
     def _get_default_graph(self):
