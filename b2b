@@ -1,10 +1,7 @@
 #!/usr/bin/env python
 
-from bacpypes.basetypes import PropertyIdentifier
-from bacpypes.object import Object, OptionalProperty
-from bacpypes.primitivedata import CharacterString
-
 import time
+import logging
 import sys
 import threading
 import json
@@ -17,10 +14,15 @@ from bacpypes.core import run as bacpypes_run
 from brickbacnet.discovery import BacnetDiscovery
 from brickbacnet.brickserver import BrickServer
 from brickbacnet.namespaces import BACNET, BRICK_NS_TEMPLATE, OWL, RDF, RDFS
+from brickbacnet.connector import Connector
 
 def str2ilist(s):
     s.replace(' ', '')
     return [int(c) for c in s.split(',')]
+
+def str2slist(s):
+    s.replace(' ', '')
+    return [str(c) for c in s.split(',')]
 
 class BacnetConn(object):
     def __init__(self):
@@ -31,23 +33,13 @@ class BacnetConn(object):
             "command", help="The command to run", choices=["discovery", "connector"],
         )
         args = parser.parse_args(sys.argv[1:2])
-        getattr(self, args.command)()
+        getattr(self, 'run_' + args.command)()
 
-    def discovery(self):
+    def run_discovery(self):
         parser = argparse.ArgumentParser(
-            description="Record changes to the repository",
+            description="Record changes to the repository. The priority of conflicting configuration aparameters is `b2b_config.json` > `argument parameters` > `default values`.",
         )
-        parser.register('type','ilist', str2ilist)
-        parser.add_argument(
-            "--bacpypes-ini",
-            help="The location of BACpypes.ini",
-            default="configs/BACpypes.ini",
-        )
-        parser.add_argument(
-            "--b2b-config",
-            help="The location of brickbacnet config file in JSON.",
-            default="configs/b2b_config.json"
-        )
+        parser = self._add_shared_args(parser)
         parser.add_argument(
             "--bacnet-devices-file",
             help="The target file to store bacnet devices' metadata.",
@@ -57,11 +49,6 @@ class BacnetConn(object):
             "--bacnet-objects-file",
             help="The target file to store bacnet objects' metadata.",
             default="results/bacnet_objects.json",
-        )
-        parser.add_argument(
-            "--brickserver-config",
-            help="The location of brickbacnet config file in JSON.",
-            default="configs/brickserver_config.json"
         )
         parser.add_argument(
             "--register-brickserver",
@@ -76,12 +63,6 @@ class BacnetConn(object):
             const=True,
             default=False,
             help="Regsiter discovered objects in a Plaster Web Service (TODO)",
-        )
-        parser.add_argument(
-            "--target-devices",
-            default=None,
-            help="Indicate the target devices for which you'd like to get objects. By default, brickbacnet queries all the discoverable devices. Comma-separated integers are accepted (e.g., --target-devices 505,506",
-            type='ilist',
         )
         parser.add_argument(
             "--base-namespace",
@@ -119,7 +100,7 @@ class BacnetConn(object):
         # Discover BACnet objects for identified devices
         if args.target_devices:
             target_device_ids = args.target_devices
-            target_devices = {dev_id: devices[dev_id] for dev_id in target_device_ids}
+            target_devices = {dev_id: devices[int(dev_id)] for dev_id in target_device_ids}
         else:
             target_devices = devices
         device_objs = bacnet_discovery.discover_objects(target_devices)
@@ -152,7 +133,7 @@ class BacnetConn(object):
                 if prop in ['device_id'] + self.property_filters:
                     continue
                 g.add((dev_uri, BACNET[prop], Literal(val)))
-            for obj_props in device_objs[int(dev_id)].values():
+            for obj_props in device_objs[str(dev_id)].values():
                 obj_uri = self.BASE[obj_props['source_identifier']]
                 g.add((obj_uri, RDF.type, self.BRICK.Point))
                 g.add((dev_uri, self.BRICK.hasPoint, obj_uri))
@@ -163,14 +144,58 @@ class BacnetConn(object):
         g.serialize(target_file, format='turtle')
         return g
 
-
-    def connector(self):
-        parser = argparse.ArgumentParser(
-            description="Download objects and refs from another repository"
+    def _add_shared_args(self, parser):
+        parser.register('type','ilist', str2ilist)
+        parser.register('type','slist', str2slist)
+        parser.add_argument(
+            "--target-devices",
+            default=None,
+            help="Indicate the target devices for which you'd like to get objects. By default, brickbacnet queries all the discoverable devices. Comma-separated integers are accepted (e.g., --target-devices 505,506",
+            type='slist',
         )
-        # NOT prefixing the argument with -- means it's not optional
-        parser.add_argument("repository")
+        parser.add_argument(
+            "--b2b-config",
+            help="The location of brickbacnet config file in JSON.",
+            default="configs/b2b_config.json"
+        )
+        parser.add_argument(
+            "--bacpypes-ini",
+            help="The location of BACpypes.ini",
+            default="configs/BACpypes.ini",
+        )
+        return parser
+
+
+
+    def run_connector(self):
+        parser = argparse.ArgumentParser(
+            description="Run a Connector for BACnet and Brick Server",
+        )
+        parser = self._add_shared_args(parser)
+        parser.add_argument(
+            "--run-actuation-server",
+            action="store_const",
+            const=True,
+            default=False,
+            help="Regsiter discovered objects in a Brick Server",
+        )
         args = parser.parse_args(sys.argv[2:])
+        config = json.load(open(args.b2b_config))
+        config['connector']['bacnet_dev_ids'] = config.get('bacnet_dev_ids', args.target_devices)
+        assert config['connector']['bacnet_dev_ids']
+
+        ds_if = BrickServer(config['brickserver']['hostname'],
+                            config['brickserver']['jwt_token'],
+                            )
+
+        connector = Connector(config.get('bacpypes_ini', args.bacpypes_ini),
+                              ds_if=ds_if,
+                              config=config['connector'],
+                              )
+        if args.run_actuation_server:
+            raise NotImplementedError()
+
+        connector.read_all_devices_forever()
 
 
 if __name__ == "__main__":

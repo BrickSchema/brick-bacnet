@@ -25,6 +25,8 @@ from bacpypes.object import get_datatype
 from bacpypes.constructeddata import Array
 from bacpypes.task import TaskManager
 
+from .common import make_src_id
+
 
 class BacnetDiscovery(BIPSimpleApplication):
     def __init__(
@@ -159,9 +161,6 @@ class BacnetDiscovery(BIPSimpleApplication):
                 dev["addr"], dev["device_identifier"], "objectList", 0
             )
 
-    def _make_srcid(self, device_id, obj_id):
-        return obj_id + "@" + str(device_id)
-
     def discover_objects(self, target_devices):
         """ input_device_id_list specifies the objects to collect data from.
             if input_device_id_list is empty, data is collected from all devices discovered by whois
@@ -173,7 +172,7 @@ class BacnetDiscovery(BIPSimpleApplication):
                 self.logger.warning(f'Device {device_id} does not have any objects.')
                 continue
             # read properties of the objects
-            for obj_idx in range(1, int(dev["obj_count"]) + 1)[0:10]:
+            for obj_idx in range(1, int(dev["obj_count"]) + 1)[0:10]: #TODO: Remove this
                 time.sleep(0.05) # TODO: Configure this.
                 obj = self.do_read(
                     dev["addr"], dev["device_identifier"], "objectList", obj_idx
@@ -189,9 +188,9 @@ class BacnetDiscovery(BIPSimpleApplication):
                     "instance": obj[1],
                     "object_identifier": ":".join([str(x) for x in obj]),
                     "description": self.do_read(dev["addr"], obj, "description"),
-                    "sensor_type": self.do_read(dev["addr"], obj, "deviceType"),
+                    "object_type": self.do_read(dev["addr"], obj, "objectType"),
                     "unit": self.do_read(dev["addr"], obj, "units"),
-                    "source_identifier": self._make_srcid(device_id, obj_id)
+                    "source_identifier": make_src_id(device_id, obj_id)
                 }
                 for field, prop in self.object_custom_fields.items():
                     obj_res[field] = self.do_read(dev['addr'], obj, prop)
