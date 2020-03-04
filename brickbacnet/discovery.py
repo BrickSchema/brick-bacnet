@@ -26,6 +26,7 @@ from bacpypes.constructeddata import Array
 from bacpypes.task import TaskManager
 
 from .common import make_src_id
+from .sqlite_wrapper import SqliteWrapper
 
 
 class BacnetDiscovery(BIPSimpleApplication):
@@ -46,6 +47,7 @@ class BacnetDiscovery(BIPSimpleApplication):
             vendorIdentifier=int(config["vendorIdentifier"]),
             vendorName="brick-community",
         )
+        self.sqlite_db = SqliteWrapper(brickbacnet_config['sqlite_db'])
 
         BIPSimpleApplication.__init__(self, self.this_device, config["address"])
         self.taskman = TaskManager()
@@ -160,6 +162,11 @@ class BacnetDiscovery(BIPSimpleApplication):
             dev["obj_count"] = self.do_read(
                 dev["addr"], dev["device_identifier"], "objectList", 0
             )
+            dev["jci_name"] = self.do_read(
+                dev["addr"], dev["device_identifier"], "jci_name", 0
+            )
+
+            self.sqlite_db.write_device_properties(dev)
 
     def discover_objects(self, target_devices):
         """ input_device_id_list specifies the objects to collect data from.
@@ -185,15 +192,23 @@ class BacnetDiscovery(BIPSimpleApplication):
                     self.logger.warning(f"Object {obj_id} already exists in Device {device_id}.")
                 obj_res = {
                     "index": obj_idx,
+                    "device_id": device_id,
                     "instance": obj[1],
                     "object_identifier": ":".join([str(x) for x in obj]),
-                    "description": self.do_read(dev["addr"], obj, "description"),
                     "object_type": self.do_read(dev["addr"], obj, "objectType"),
+                    "description": self.do_read(dev["addr"], obj, "description"),
+                    "jci_name":    self.do_read(dev["addr"], obj, "jciName"),
+                    "sensor_type": self.do_read(dev["addr"], obj, "deviceType"),
                     "unit": self.do_read(dev["addr"], obj, "units"),
-                    "source_identifier": make_src_id(device_id, obj_id)
+                    "source_identifier": make_src_id(device_id, obj_id),
                 }
+                obj_res["uuid"] = obj_res["object_identifier"]  # TODO replace with a uuid
+
                 for field, prop in self.object_custom_fields.items():
                     obj_res[field] = self.do_read(dev['addr'], obj, prop)
+
+                self.sqlite_db.write_obj_properties( obj_res)
+
                 objs[obj_id] = obj_res
             device_objs[device_id] = objs
         return device_objs
