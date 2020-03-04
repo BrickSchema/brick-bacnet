@@ -3,11 +3,12 @@
 import time
 import logging
 import sys
+from typing import Union
 import threading
 import json
 import argparse
 from pdb import set_trace as bp
-from rdflib import Namespace, Graph, Literal
+from rdflib import Namespace, Graph, Literal, URIRef
 
 from bacpypes.core import run as bacpypes_run
 
@@ -15,6 +16,7 @@ from brickbacnet.discovery import BacnetDiscovery
 from brickbacnet.brickserver import BrickServer
 from brickbacnet.namespaces import BACNET, BRICK_NS_TEMPLATE, OWL, RDF, RDFS
 from brickbacnet.connector import Connector
+from brickbacnet.common import make_src_id, make_obj_id
 
 def str2ilist(s):
     s.replace(' ', '')
@@ -95,7 +97,7 @@ class BacnetConn(object):
         # Discover BACnet devices
         devices = bacnet_discovery.discover_devices()
         with open(args.bacnet_devices_file, "w") as fp:
-            json.dump(devices, fp, indent=4, sort_keys=True)
+            json.dump(devices, fp, indent=2, sort_keys=True)
 
         # Discover BACnet objects for identified devices
         if args.target_devices:
@@ -105,16 +107,58 @@ class BacnetConn(object):
             target_devices = devices
         device_objs = bacnet_discovery.discover_objects(target_devices)
         with open(args.bacnet_objects_file, "w") as fp:
-            json.dump(device_objs, fp, indent=4, sort_keys=True)
+            json.dump(device_objs, fp, indent=2, sort_keys=True)
+
+        if args.register_brickserver:
+            self.ds_if = BrickServer(config['brickserver']['hostname'],
+                                           config['brickserver']['jwt_token'])
+        else:
+            self.ds_if = DummyServer() #TODO
 
         # Serialize the discovered resources into an RDF graph
         g = self.make_brick_graph(target_devices, device_objs)
+        self.uuid_dev_id_map, self.uuid_src_id_map = self.create_uuid_maps(g)
+        json.dump(self.uuid_dev_id_map, open('results/uuid_dev_id_map.json', 'w'), indent=2)
+        json.dump(self.uuid_src_id_map, open('results/uuid_src_id_map.json', 'w'), indent=2)
+        #TODO: This needs to be changed to sql interface.
 
         # Register the identifeid devies and objects to Brick Server
         if args.register_brickserver:
-            self.brickserver = BrickServer(config['brickserver']['hostname'],
-                                           config['brickserver']['jwt_token'])
-            self.brickserver.register_graph(g)
+            self.ds_if.register_graph(g)
+
+    def create_uuid_maps(self, g):
+
+        # map devices
+        qstr = """
+        select ?entity ?dev_id where {
+            ?entity a bacnet:BACnet_Device.
+            ?dev bacnet:device_identifier ?dev_id.
+        }
+        """
+        uuid_dev_id_map = {}
+        for [entity_id, dev_id] in g.query(qstr):
+            uuid_dev_id_map[entity_id] = dev_id
+
+        # map objects
+        qstr = """
+        select ?entity ?obj_type ?obj_instance ?dev_id where {
+            ?entity a brick:Point.
+            ?entity bacnet:object_type ?obj_type.
+            ?entity bacnet:instance ?obj_instance.
+            ?dev brick:hasPoint ?entity.
+            ?dev bacnet:device_identifier ?dev_id.
+        }
+        """
+        res = g.query(qstr)
+        uuid_src_id_map = {}
+        for [entity_id, obj_type, obj_instance, dev_id] in res:
+            obj_id = make_obj_id(obj_type, obj_instance)
+            src_id = make_src_id(dev_id, obj_id)
+            uuid_src_id_map[entity_id] = src_id
+
+        return uuid_dev_id_map, uuid_src_id_map
+
+
 
     def _get_default_graph(self):
         g = Graph()
@@ -123,22 +167,30 @@ class BacnetConn(object):
         g.bind('base', self.BASE)
         return g
 
+    def get_uri(self, src_id, entity_type: Union[str, URIRef]):
+        # TODO: Lookup src_id and see if uuid exists. Return the existing one if exists.
+
+        # If not exists:
+        uri = URIRef(self.ds_if.create_entity(str(entity_type)))
+        return uri
+
     def make_brick_graph(self, devices, device_objs, target_file='results/b2b.ttl'):
         g = self._get_default_graph()
         for dev_props in devices.values():
             dev_id = dev_props['device_id']
-            dev_uri = self.BASE[dev_id]
+            #dev_uri = self.BASE[dev_id]
+            dev_uri = self.get_uri(dev_id, BACNET.BACnet_Device)
             g.add((dev_uri, RDF.type, BACNET.BACnet_Device))
             for prop, val in dev_props.items():
                 if prop in ['device_id'] + self.property_filters:
                     continue
                 g.add((dev_uri, BACNET[prop], Literal(val)))
             for obj_props in device_objs[str(dev_id)].values():
-                obj_uri = self.BASE[obj_props['source_identifier']]
+                obj_uri = self.get_uri(obj_props, 'Point')
                 g.add((obj_uri, RDF.type, self.BRICK.Point))
                 g.add((dev_uri, self.BRICK.hasPoint, obj_uri))
                 for prop, val in obj_props.items():
-                    if prop in ['source_identifier'] + self.property_filters:
+                    if prop in self.property_filters:
                         continue
                     g.add((obj_uri, BACNET[prop], Literal(val)))
         g.serialize(target_file, format='turtle')

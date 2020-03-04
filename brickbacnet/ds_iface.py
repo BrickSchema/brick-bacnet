@@ -34,3 +34,9 @@ class DsIface(object):
         """
         raise NotImplementedError('Method not implemented!')
 
+    def create_entity(self, entity_type):
+        """ get an identifier of a newly create entity
+            that is used by the data service
+        """
+        raise NotImplementedError('Method not implemented!')
+

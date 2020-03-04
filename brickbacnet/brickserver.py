@@ -12,6 +12,7 @@ class BrickServer(DsIface):
         self.hostname = hostname
         self.api_url = hostname + '/brickapi/v1'
         self.ts_url = hostname + '/brickapi/v1/data/timeseries'
+        self.entities_url = hostname + '/brickapi/v1/entities'
         self.ttl_upload_url = hostname + '/brickapi/v1/entities/upload'
         self.jwt_token = jwt_token
         self.default_headers = {
@@ -47,7 +48,6 @@ class BrickServer(DsIface):
             kwargs['headers'] = self.default_headers
         resp = requests.post(url, **kwargs)
         return resp
-
 
     def register_graph(self, g):
         serialized = g.serialize(format='turtle')
@@ -88,4 +88,17 @@ class BrickServer(DsIface):
 
     def get_timeseries_data(self, sensor):
         raise NotImplementedError('Method not implemented!')
+
+    def create_entity(self, entity_type):
+        body = {
+            entity_type: 1,
+        }
+        headers = self._authorize_headers()
+        resp = self._post(self.entities_url,
+                          json=body,
+                          headers=headers,
+                          )
+        assert resp.status_code == 200
+        return resp.json()[entity_type][0]
+
 
