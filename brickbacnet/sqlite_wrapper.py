@@ -36,6 +36,7 @@ class SqliteWrapper():
                                                "name varchar(255), " +
                                                "ip_addr varchar(12), " +
                                                "max_apdu int, "+
+                                               "uuid str, "+
                                                "vendor_id int);"
                                                )
             conn.commit()
@@ -169,5 +170,40 @@ class SqliteWrapper():
                       props["unit"]
                     )
                 )
+        conn.commit()
+
+    def update_dev_property(self, dev_id, prop, val, version='v1'):
+        table_name = 'device_table'
+
+        if not self.does_table_exist(table_name):
+            raise Exception("Table %s does not exist" %table_name)
+
+        conn = sqlite3.connect(self.db)
+        c = conn.cursor()
+
+        qstr = f"UPDATE {table_name} \n" + f"SET {prop} = {val}\n" + f"WHERE device_id= {dev_id}"
+
+        c.execute(f"UPDATE {table_name} \n" +
+                  f'SET {prop} = "{val}"\n' +
+                  f"WHERE device_id= {dev_id}"
+                  )
+        conn.commit()
+
+
+
+    def update_obj_property(self, dev_id, obj_instance, prop, val, version='v1'):
+        table_name = 'table_%s_%s'%(str(dev_id), version)
+        bp()
+
+        if not self.does_table_exist(table_name):
+            raise Exception("Table %s does not exist" %table_name)
+
+        conn = sqlite3.connect(self.db)
+        c = conn.cursor()
+
+        c.execute(f"UPDATE {table_name}\n" +
+                  f"SET {prop} = '{val}'\n" +
+                  f"WHERE instance = {obj_instance}"
+                  )
         conn.commit()
 

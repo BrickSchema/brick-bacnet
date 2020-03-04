@@ -31,7 +31,7 @@ from .sqlite_wrapper import SqliteWrapper
 
 class BacnetDiscovery(BIPSimpleApplication):
     def __init__(
-        self, bacpypes_inifile, brickbacnet_config,
+        self, bacpypes_inifile, brickbacnet_config, sqlite_db,
     ):
         self.logger = logging.getLogger('bacnet_discovery')
         self.logger.setLevel(logging.WARNING)
@@ -47,7 +47,7 @@ class BacnetDiscovery(BIPSimpleApplication):
             vendorIdentifier=int(config["vendorIdentifier"]),
             vendorName="brick-community",
         )
-        self.sqlite_db = SqliteWrapper(brickbacnet_config['sqlite_db'])
+        self.sqlite_db = sqlite_db
 
         BIPSimpleApplication.__init__(self, self.this_device, config["address"])
         self.taskman = TaskManager()
@@ -202,12 +202,12 @@ class BacnetDiscovery(BIPSimpleApplication):
                     "unit": self.do_read(dev["addr"], obj, "units"),
                     "source_identifier": make_src_id(device_id, obj_id),
                 }
-                obj_res["uuid"] = obj_res["object_identifier"]  # TODO replace with a uuid
+                obj_res["uuid"] = None
 
                 for field, prop in self.object_custom_fields.items():
                     obj_res[field] = self.do_read(dev['addr'], obj, prop)
 
-                self.sqlite_db.write_obj_properties( obj_res)
+                self.sqlite_db.write_obj_properties(obj_res)
 
                 objs[obj_id] = obj_res
             device_objs[device_id] = objs

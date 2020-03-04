@@ -28,20 +28,6 @@ def create_logger(logfile):
     logger.addHandler(fh)
     return logger
 
-#class BDSensorObj(DsSensorObj):
-#    """ The sensor object. contains the UUID and sensorpoint type """
-#    uuid = None
-#    sensorpoint_type = None
-#    def __init__(self,
-#                 uuid,
-#                 sensorpoint_type):
-#        self.uuid = uuid
-#        self.sensorpoint_type = sensorpoint_type
-
-# Coding Convention: (this is followed unless specified)
-# obj: BACnet Object
-# dev: BACnet Device (e.g., NAE)
-
 
 class Connector(object):
     def __init__(self,
