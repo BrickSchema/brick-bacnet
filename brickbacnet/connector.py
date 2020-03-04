@@ -14,6 +14,7 @@ from .bacnet_wrapper import  BacnetWrapper
 #from .actuation_server import ActuationServer
 from .common import make_src_id, make_obj_id, striding_window
 from .brickserver import BrickServer
+from .sqlite_wrapper import SqliteWrapper
 
 
 def create_logger(logfile):
@@ -67,24 +68,16 @@ class Connector(object):
         if clear_cache:
             os.remove("sensor_uuid.json")
 
-        bacnet_dev_ids = config['bacnet_dev_ids']
-        self.bacnet_dev_objs = {}
-
-        #for dev_id in bacnet_dev_ids:
-        #    uuid_file = 'results/{0}_uuids.json'.format(dev_id)
-        tot_dev_objs = json.load(open('results/bacnet_objects.json'))
-        self.bacnet_dev_objs = {dev_id: tot_dev_objs[dev_id] for dev_id in bacnet_dev_ids}
-
-
-        tot_devs = json.load(open('results/bacnet_devices.json'))
-        self.bacnet_devs= {dev_id: tot_devs[dev_id] for dev_id in bacnet_dev_ids}
-
+        self.bacnet_dev_ids = config['bacnet_dev_ids']
+        self.sqlite_db = SqliteWrapper(config['sqlite_db'])
+        # read device data from the SQLite database. Updates to device data can be handled without
+        # restarting connector.
 
 
     def read_all_devices_forever(self):
-        for dev_id in self.bacnet_devs.keys():
-            self.read_device_forever(dev_id)
-
+        for dev_id in self.bacnet_dev_ids:
+            dev = self.sqlite_db.read_device_properties(dev_id)
+            self.read_device_forever(dev)
 
     def read_object(self, dev, obj_type, obj_instance, obj_property='presentValue'):
         value = self.bacnet.do_read(dev['addr'], obj_type, obj_instance, prop_id=obj_property)
@@ -95,13 +88,16 @@ class Connector(object):
         }
 
     def read_device_once(self, dev_id):
-        dev = self.bacnet_devs[dev_id]
-        objs = self.bacnet_dev_objs[dev_id]
-        for window_objs in striding_window(list(objs.values()), self.read_batch_size):
+        dev = self.sqlite_db.read_device_properties(dev_id)
+        object_ids = dev["objects"]
+        #dev = self.bacnet_devs[dev_id]
+        #objs = self.bacnet_dev_objs[dev_id]
+        for window_obj_ids in striding_window(object_ids, self.read_batch_size):
             datapoints = []
-            for obj in window_objs:
+            for obj_id in window_obj_ids:
                 try:
-                    datapoint = self.read_object(dev, obj['object_type'], obj['instance'])
+                    obj = self.sqlite_db.read_obj_properties(device_id=dev_id, instance=obj_id)
+                    datapoint = self.read_object(dev, obj['type'], obj_id)
                     datapoint['src_id'] = make_src_id(dev_id, make_obj_id(obj['object_type'], obj['instance']))
                 except Exception as e:
                     if str(e).split(':')[-1] == 'invalid property for object type':

@@ -21,6 +21,10 @@ A virtual BACnet device that can connect BACnet to Brick Server.
 - `b2b discovery`: This discovers all the BACnet devices and objects and store them in a sqlite db.
 - `b2b connector`: This periodically polls all the points and push them to a Brick Server. When activated, it can receive actuation requests as well.
 
+# Example Commands
+- `./b2b discovery --target-devices 123,124 --registerbrick-server`: Discover all objects from BACnet devices, 123 and 125 and register them at a designated Brick Server
+- `./b2b connector --target-devices 123,124`: Periodically update the objects' data in the BACnet devices 123 and 124 to the Brick Server.
+
 
 # Tutorial
 1. Make sure your hosting machine has the connection to both BACnet devices and a Brcik Server.
