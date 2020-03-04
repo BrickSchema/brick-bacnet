@@ -52,11 +52,11 @@ class BrickServer(DsIface):
     def register_graph(self, g):
         serialized = g.serialize(format='turtle')
         headers = {'Content-Type': 'text/turtle'}
-        resp = self._post(self.ttl_upload_url,
-                          data=serialized,
-                          headers=headers,
-                          )
-        assert resp.status_code == 200
+        #resp = self._post(self.ttl_upload_url,
+        #                  data=serialized,
+        #                  headers=headers,
+        #                  )
+        #assert resp.status_code == 200
 
     def _authorize_headers(self, headers={}):
         headers.update(self.default_headers)
