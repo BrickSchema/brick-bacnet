@@ -96,7 +96,7 @@ class SqliteWrapper():
             conn.commit()
 
         c.execute(("CREATE TABLE "+ table_name + " ( uuid varchar(36), " +
-                                                     "device_id int, " +
+                                                     "device_ref int, " +
                                                      "instance int, " +
                                                      "object_type int, " +
                                                      "description varchar(255), " +
@@ -148,7 +148,7 @@ class SqliteWrapper():
         res = c.execute("SELECT * FROM " + table_name + " WHERE instance=?", (instance,)).fetchone()
 
         return {"uuid":        res[0],
-                "device_id":   res[1],
+                "device_ref":   res[1],
                 "instance":    res[2],
                 "object_type": res[3],
                 "description": res[4],
@@ -157,7 +157,7 @@ class SqliteWrapper():
                 "unit":        res[7] }
 
     def write_obj_properties(self, props, version='v1'):
-        table_name = 'table_%s_%s'%(str(props["device_id"]), version)
+        table_name = 'table_%s_%s'%(str(props["device_ref"]), version)
 
         if not self.does_table_exist(table_name):
             raise Exception("Table %s does not exist" %table_name)
@@ -166,15 +166,15 @@ class SqliteWrapper():
         c = conn.cursor()
 
         # remove old entry and add a new one.
-        c.execute(("DELETE FROM "+ table_name + " WHERE device_id=? AND instance=?;"),
-                    (int(props["device_id"]), props["instance"]))
+        c.execute(("DELETE FROM "+ table_name + " WHERE device_ref=? AND instance=?;"),
+                    (int(props["device_ref"]), props["instance"]))
         conn.commit()
 
-        c.execute(("INSERT INTO "+ table_name + "(uuid ,device_id, instance, object_type, "
+        c.execute(("INSERT INTO "+ table_name + "(uuid ,device_ref, instance, object_type, "
                                               + "description, jci_name ,sensor_type ,unit) "
                     + "VALUES (? ,? ,? ,? ,? ,? ,? ,?);" ),
                     ( props["uuid"],
-                      props["device_id"],
+                      props["device_ref"],
                       props["instance"],
                       props["object_type"],
                       props["description"],

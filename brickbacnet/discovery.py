@@ -192,7 +192,7 @@ class BacnetDiscovery(BIPSimpleApplication):
                     self.logger.warning(f"Object {obj_id} already exists in Device {device_id}.")
                 obj_res = {
                     "index": obj_idx,
-                    "device_id": device_id,
+                    "device_ref": device_id,
                     "instance": obj[1],
                     "object_identifier": ":".join([str(x) for x in obj]),
                     "object_type": self.do_read(dev["addr"], obj, "objectType"),
