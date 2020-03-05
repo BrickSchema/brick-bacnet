@@ -27,6 +27,8 @@ def str2slist(s):
     s.replace(' ', '')
     return [str(c) for c in s.split(',')]
 
+
+
 class BacnetConn(object):
     def __init__(self):
         parser = argparse.ArgumentParser(
@@ -73,18 +75,14 @@ class BacnetConn(object):
             help="The name space associated with discovered entities",
             type=str,
         )
-        parser.add_argument(
-            "--brick-version",
-            default='1.0.3',
-            help="Brick's version",
-            type=str,
-        )
 
         # Set parameters
         args = parser.parse_args(sys.argv[2:])
-        self.BRICK = Namespace(BRICK_NS_TEMPLATE.format(version=args.brick_version))
         with open(args.b2b_config, 'r') as fp:
             config = json.load(fp)
+        self.BRICK = Namespace(BRICK_NS_TEMPLATE.format(version=config['brick_version']))
+        self.Point = self.BRICK.Point
+        self.BACnet_Device = BACNET.BACnet_Device
         self.property_filters = config["property_filters"]
         self.sqlite_db = SqliteWrapper(config['sqlite_db'])
 
@@ -112,7 +110,9 @@ class BacnetConn(object):
 
         if args.register_brickserver:
             self.ds_if = BrickServer(config['brickserver']['hostname'],
-                                           config['brickserver']['jwt_token'])
+                                     config['brickserver']['jwt_token'],
+                                     config['brick_version'],
+                                     )
         else:
             self.ds_if = DummyServer() #TODO
 
@@ -201,27 +201,64 @@ class BacnetConn(object):
         g.bind('bacnet', BACNET)
         return g
 
-    def get_uri(self, src_id, entity_type: Union[str, URIRef]):
-        # TODO: Lookup src_id and see if uuid exists. Return the existing one if exists.
+    def get_obj_uri(self, dev_id: str, instance: int, entity_type: Union[str, URIRef]):
+        # Check if the src_id exists in the local db
+        entity_id = self.sqlite_db.find_obj_uuid(dev_id, instance)
+        if not entity_id:
+            props = {
+                'instance': instance,
+                'device_ref': dev_id,
+            }
+            entity_ids = self.ds_if.query_entities(props)
+            if entity_ids:
+                if len(entity_ids) > 1:
+                    print(f'There are more than 1 entities found at Brick Server for Device {instance}')
+                entity_id = entity_ids[0]
 
-        # If not exists:
-        uri = URIRef(self.ds_if.create_entity(str(entity_type)))
+        # Check if the src_id exists in Brick Server if register_brickserver is enabled.
+        if entity_id:
+            uri = URIRef(entity_id)
+        else:
+            uri = URIRef(self.ds_if.create_entity(str(entity_type)))
+
+        return uri
+
+    def get_dev_uri(self, instance: int, entity_type: Union[str, URIRef]):
+        # Check if the src_id exists in the local db
+        entity_id = self.sqlite_db.find_dev_uuid(instance)
+        if not entity_id:
+            props = {
+                'device_id': instance,
+            }
+            entity_ids = self.ds_if.query_entities(props)
+            if entity_ids:
+                if len(entity_ids) > 1:
+                    print(f'There are more than 1 entities found at Brick Server for Device {instance}')
+                entity_id = entity_ids[0]
+
+        # Check if the src_id exists in Brick Server if register_brickserver is enabled.
+        if entity_id:
+            uri = URIRef(entity_id)
+        else:
+            uri = URIRef(self.ds_if.create_entity(str(entity_type)))
+
         return uri
 
     def make_brick_graph(self, devices, device_objs, target_file='results/b2b.ttl'):
         g = self._get_default_graph()
         for dev_props in devices.values():
             dev_id = dev_props['device_id']
-            dev_uri = self.get_uri(dev_id, BACNET.BACnet_Device)
+            dev_uri = self.get_dev_uri(dev_id, BACNET.BACnet_Device)
             g.add((dev_uri, RDF.type, BACNET.BACnet_Device))
             for prop, val in dev_props.items():
                 if prop in self.property_filters:
                     continue
                 g.add((dev_uri, BACNET[prop], Literal(val)))
-            for obj_props in device_objs[str(dev_id)].values():
-                obj_uri = self.get_uri(obj_props, 'Point')
+            for obj_props in device_objs[dev_id].values():
+                obj_uri = self.get_obj_uri(dev_id, obj_props['instance'], 'Point')
                 g.add((obj_uri, RDF.type, self.BRICK.Point))
                 g.add((dev_uri, self.BRICK.hasPoint, obj_uri))
+                g.add((obj_uri, self.BRICK.isPointOf, dev_uri))
                 for prop, val in obj_props.items():
                     if prop in self.property_filters:
                         continue
@@ -236,7 +273,7 @@ class BacnetConn(object):
             "--target-devices",
             default=None,
             help="Indicate the target devices for which you'd like to get objects. By default, brickbacnet queries all the discoverable devices. Comma-separated integers are accepted (e.g., --target-devices 505,506",
-            type='slist',
+            type='ilist',
         )
         parser.add_argument(
             "--b2b-config",

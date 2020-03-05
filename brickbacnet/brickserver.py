@@ -3,16 +3,26 @@ from collections import defaultdict
 
 from pdb import set_trace as bp
 
+from rdflib import Namespace
+
 from .ds_iface import DsIface
+from .namespaces import BRICK_NS_TEMPLATE, BACNET
 
 
 
 class BrickServer(DsIface):
-    def __init__(self, hostname, jwt_token, srcid_uuid_map={}):
+    def __init__(self, hostname: str,
+                 jwt_token: str,
+                 brick_version: str,
+                 srcid_uuid_map: dict={},
+                 ):
+        self.brick_version = brick_version
+        self.BRICK = Namespace(BRICK_NS_TEMPLATE.format(version=self.brick_version))
         self.hostname = hostname
         self.api_url = hostname + '/brickapi/v1'
         self.ts_url = hostname + '/brickapi/v1/data/timeseries'
         self.entities_url = hostname + '/brickapi/v1/entities'
+        self.sparql_url = hostname + '/brickapi/v1/rawqueries/sparql'
         self.ttl_upload_url = hostname + '/brickapi/v1/entities/upload'
         self.jwt_token = jwt_token
         self.default_headers = {
@@ -100,5 +110,38 @@ class BrickServer(DsIface):
                           )
         assert resp.status_code == 200
         return resp.json()[entity_type][0]
+
+    def query_entities(self, props):
+        qstr = """
+        prefix bacnet: <{BACNET}>
+        prefix brick: <{BRICK}>
+        prefix xsd: <http://www.w3.org/2001/XMLSchema#>
+        select ?entity where {{
+        """.format(BRICK=self.BRICK, BACNET=BACNET)
+
+        for prop, val in props.items():
+            if prop == 'device_ref':
+                qstr += f"""
+?dev brick:hasPoint ?entity.
+?dev bacnet:device_id "{val}"^^xsd:integer.
+"""
+            else:
+                if isinstance(val, int):
+                    val = f'"{val}"^^xsd:integer'
+                elif isinstance(val, str):
+                    val = f'"{val}"'
+                else:
+                    raise Exception('Not implemented')
+
+                qstr += f'?entity bacnet:{prop} {val}.\n'
+        qstr += '\n}'
+        headers = self._authorize_headers({'Content-Type': 'application/sparql-query'})
+        resp = self._post(self.sparql_url,
+                          data=qstr,
+                          headers=headers,
+                          )
+        assert resp.status_code == 200
+        entity_ids = [row['entity']['value'] for row in resp.json()['results']['bindings']]
+        return entity_ids
 
 

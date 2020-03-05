@@ -14,8 +14,21 @@
 
 
 import json
-import sqlite3
 from pdb import set_trace as bp
+from contextlib import contextmanager
+
+import sqlite3
+
+
+@contextmanager
+def cursor_to_commit(db):
+    try:
+        conn = sqlite3.connect(db)
+        c = conn.cursor()
+        yield c
+        conn.commit
+    finally:
+        pass
 
 class SqliteWrapper():
     """ The main wrapper through which data can be read/written.
@@ -193,7 +206,6 @@ class SqliteWrapper():
 
     def update_obj_property(self, dev_id, obj_instance, prop, val, version='v1'):
         table_name = 'table_%s_%s'%(str(dev_id), version)
-        bp()
 
         if not self.does_table_exist(table_name):
             raise Exception("Table %s does not exist" %table_name)
@@ -207,3 +219,28 @@ class SqliteWrapper():
                   )
         conn.commit()
 
+
+    def find_dev_uuid(self, dev_id):
+        qstr = f"""
+        select uuid
+        from device_table
+        where
+        device_id = {dev_id}
+        """
+        with cursor_to_commit(self.db) as cursor:
+            res = cursor.execute(qstr)
+        row = res.fetchone()
+        return row[0]
+
+    def find_obj_uuid(self, dev_id: str, instance: str, version: str='v1'):
+        table_name = 'table_%s_%s'%(str(dev_id), version)
+        qstr = f"""
+        select uuid
+        from {table_name}
+        where
+        instance = {instance}
+        """
+        with cursor_to_commit(self.db) as cursor:
+            res = cursor.execute(qstr)
+        row = res.fetchone()
+        return row[0]

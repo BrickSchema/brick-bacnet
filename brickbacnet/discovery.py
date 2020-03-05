@@ -59,7 +59,7 @@ class BacnetDiscovery(BIPSimpleApplication):
         if isinstance(apdu, IAmRequest):
             dev_data = {}
             dev_data["addr"] = str(apdu.pduSource)
-            dev_data["device_id"] = repr(apdu.iAmDeviceIdentifier[1])  # just the number
+            dev_data["device_id"] = apdu.iAmDeviceIdentifier[1]  # just the number
             dev_data["device_identifier"] = ":".join(
                 [str(x) for x in apdu.iAmDeviceIdentifier]
             )
