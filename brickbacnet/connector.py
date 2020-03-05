@@ -37,12 +37,12 @@ class Connector(object):
                  config={},
                  ):
         #Initialize logging
-        self.logfile = config.get('logfile')
+        self.logfile = config['connector'].get('logfile')
         self.logger = create_logger(self.logfile)
-        self.min_interval = config.get("min_interval", 120)
-        self.read_sleeptime = config.get("read_sleeptime", 0.05)
-        self.rpc_workers = config.get("num_rpc_workers", 10)
-        self.read_batch_size = config.get('read_batch_size', 20)
+        self.min_interval = config['connector'].get("min_interval", 120)
+        self.read_sleeptime = config['connector'].get("read_sleeptime", 0.05)
+        self.rpc_workers = config['connector'].get("num_rpc_workers", 10)
+        self.read_batch_size = config['connector'].get('read_batch_size', 20)
         self.btype_dtype_map = {
         } # BAcnet type to data type map.
 
@@ -54,7 +54,7 @@ class Connector(object):
         if clear_cache:
             os.remove("sensor_uuid.json")
 
-        self.bacnet_dev_ids = config['bacnet_dev_ids']
+        self.bacnet_dev_ids = config['bacnet_device_ids']
         self.sqlite_db = SqliteWrapper(config['sqlite_db'])
         # read device data from the SQLite database. Updates to device data can be handled without
         # restarting connector.
@@ -62,8 +62,8 @@ class Connector(object):
 
     def read_all_devices_forever(self):
         for dev_id in self.bacnet_dev_ids:
-            dev = self.sqlite_db.read_device_properties(dev_id)
-            self.read_device_forever(dev)
+            #dev = self.sqlite_db.read_device_properties(dev_id)
+            self.read_device_forever(dev_id)
 
     def read_object(self, dev, obj_type, obj_instance, obj_property='presentValue'):
         value = self.bacnet.do_read(dev['addr'], obj_type, obj_instance, prop_id=obj_property)

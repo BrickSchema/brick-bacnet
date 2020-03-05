@@ -187,6 +187,7 @@ class BacnetDiscovery(BIPSimpleApplication):
                 if obj is None:
                     self.logger.warning(f"Object {obj_idx} in Device {device_id} does not exist.")
                     continue
+                bp()
                 obj_id = ":".join([str(x) for x in obj])
                 if obj_id in objs:
                     self.logger.warning(f"Object {obj_id} already exists in Device {device_id}.")

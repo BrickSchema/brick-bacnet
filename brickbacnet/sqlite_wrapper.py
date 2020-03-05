@@ -107,7 +107,6 @@ class SqliteWrapper():
         conn.commit()
 
     def read_device_properties(self, device_id, version='v1'):
-        device_id = int(device_id)
         conn = sqlite3.connect(self.db)
         c = conn.cursor()
         table_name = 'table_%s_%s'%(str(device_id), version)
