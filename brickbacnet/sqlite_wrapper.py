@@ -231,15 +231,16 @@ class SqliteWrapper():
         row = res.fetchone()
         return row[0]
 
-    def find_obj_uuid(self, dev_id: str, instance: str, version: str='v1'):
-        table_name = 'table_%s_%s'%(str(dev_id), version)
+    def find_obj_uuid(self, dev_ref: int, obj_instance: int, version: str='v1'):
+        table_name = 'table_{0}_{1}'.format(dev_ref, version)
         qstr = f"""
         select uuid
         from {table_name}
         where
-        instance = {instance}
+        instance = {obj_instance}
         """
         with cursor_to_commit(self.db) as cursor:
             res = cursor.execute(qstr)
         row = res.fetchone()
+        #TODO: Warn if there are more than one entry found.
         return row[0]

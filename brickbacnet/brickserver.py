@@ -81,7 +81,7 @@ class BrickServer(DsIface):
         datapoints_per_type = defaultdict(list)
         for dp in datapoints:
             datapoints_per_type[self.type_map[dp['object_type']]].append(
-                [self.get_uuid(dp['src_id']), dp['timestamp'], dp['value']]
+                [dp['uuid'], dp['timestamp'], dp['value']]
             )
         datapoints_per_type = dict(datapoints_per_type)
         data_per_type = {
