@@ -14,6 +14,7 @@
 
 
 import json
+import csv
 from pdb import set_trace as bp
 from contextlib import contextmanager
 
@@ -101,7 +102,7 @@ class SqliteWrapper():
                                                      "object_type int, " +
                                                      "description varchar(255), " +
                                                      "jci_name varchar(255), " +
-                                                     "sensor_type varchar(255), " +
+                                                     "name varchar(255), " +
                                                      "unit varchar(255) " +
                                                      ");"))
         conn.commit()
@@ -128,6 +129,22 @@ class SqliteWrapper():
                 "objects"    : objects
                }
 
+    def read_devices(self, version='v1'):
+        conn = sqlite3.connect(self.db)
+        c = conn.cursor()
+        res = c.execute("SELECT * FROM device_table").fetchall()
+        bp()
+
+        return {"version"    : res[0],
+                "device_id"  : res[1],
+                "description": res[2],
+                "jci_name"   : res[3],
+                "name"       : res[4],
+                "addr"       : res[5],
+                "max_apdu"   : res[6],
+                "vendor_id"  : res[7],
+               }
+
     def read_obj_properties(self, uuid=None, device_id=None, instance=None, version='v1'):
         if uuid is None and (instance is None or device_id is None):
             raise Exception("Provide atleast one of uuid and instance")
@@ -152,7 +169,7 @@ class SqliteWrapper():
                 "object_type": res[3],
                 "description": res[4],
                 "jci_name":    res[5],
-                "sensor_type": res[6],
+                "name":    res[5],
                 "unit":        res[7] }
 
     def write_obj_properties(self, props, version='v1'):
@@ -170,7 +187,7 @@ class SqliteWrapper():
         conn.commit()
 
         c.execute(("INSERT INTO "+ table_name + "(uuid ,device_ref, instance, object_type, "
-                                              + "description, jci_name ,sensor_type ,unit) "
+                                              + "description, jci_name, name, unit) "
                     + "VALUES (? ,? ,? ,? ,? ,? ,? ,?);" ),
                     ( props["uuid"],
                       props["device_ref"],
@@ -178,7 +195,7 @@ class SqliteWrapper():
                       props["object_type"],
                       props["description"],
                       props["jci_name"],
-                      props["sensor_type"],
+                      props["name"],
                       props["unit"]
                     )
                 )
@@ -244,3 +261,38 @@ class SqliteWrapper():
         row = res.fetchone()
         #TODO: Warn if there are more than one entry found.
         return row[0]
+
+    def export_devices(self, filename, version='v1'):
+        table_name = 'device_table'
+        with cursor_to_commit(self.db) as cursor:
+            col_qstr = f"""
+PRAGMA table_info({table_name});
+            """
+            res = cursor.execute(col_qstr).fetchall()
+
+            columns = [row[1] for row in res if row[1] != 'version']
+            export_qstr = """
+select {cols} from {table_name} where version = "{version}"
+            """.format(cols=', '.join(columns), table_name=table_name, version=version)
+            data_rows = cursor.execute(export_qstr).fetchall()
+        with open(filename, 'w') as f:
+            writer = csv.writer(f)
+            writer.writerow(columns)
+            writer.writerows(data_rows)
+
+    def export_objects(self, device_id, filename, version='v1'):
+        table_name = 'table_%s_%s'%(device_id, version)
+        with cursor_to_commit(self.db) as cursor:
+            col_qstr = f"""
+PRAGMA table_info({table_name});
+            """
+            res = cursor.execute(col_qstr).fetchall()
+
+            columns = [row[1] for row in res]
+            export_qstr = """select {cols} from {table_name}
+            """.format(cols=', '.join(columns), table_name=table_name)
+            data_rows = cursor.execute(export_qstr).fetchall()
+        with open(filename, 'w') as f:
+            writer = csv.writer(f)
+            writer.writerow(columns)
+            writer.writerows(data_rows)

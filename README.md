@@ -17,7 +17,7 @@ A virtual BACnet device that can connect BACnet to Brick Server.
 - `b2b --help` to list available commands.
     - `b2b discovery --help` to get help for discovery
     - `b2b connector --help` to get help for the connector
-- Configuration: Update `configs/b2b_config.json.template`.
+- Configuration: Change `configs/b2b_config.json.template` to `configs/b2b_config.json` and update the content.
 - `b2b discovery`: This discovers all the BACnet devices and objects and store them in a sqlite db.
 - `b2b connector`: This periodically polls all the points and push them to a Brick Server. When activated, it can receive actuation requests as well.
 

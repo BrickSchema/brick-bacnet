@@ -8,8 +8,8 @@ import threading
 import json
 import argparse
 from pdb import set_trace as bp
-from rdflib import Namespace, Graph, Literal, URIRef
 
+from rdflib import Namespace, Graph, Literal, URIRef
 from bacpypes.core import run as bacpypes_run
 
 from brickbacnet.discovery import BacnetDiscovery
@@ -18,6 +18,7 @@ from brickbacnet.namespaces import BACNET, BRICK_NS_TEMPLATE, OWL, RDF, RDFS
 from brickbacnet.connector import Connector
 from brickbacnet.common import make_src_id, make_obj_id
 from brickbacnet.sqlite_wrapper import SqliteWrapper
+from brickbacnet.dummy_ds import DummyDs
 
 def str2ilist(s):
     s.replace(' ', '')
@@ -48,12 +49,12 @@ class BacnetConn(object):
         parser.add_argument(
             "--bacnet-devices-file",
             help="The target file to store bacnet devices' metadata.",
-            default="results/bacnet_devices.json",
+            default="results/bacnet_devices.csv",
         )
         parser.add_argument(
-            "--bacnet-objects-file",
+            "--bacnet-objects-files-template",
             help="The target file to store bacnet objects' metadata.",
-            default="results/bacnet_objects.json",
+            default="results/bacnet_objects_{0}.csv",
         )
         parser.add_argument(
             "--register-brickserver",
@@ -95,19 +96,15 @@ class BacnetConn(object):
 
         # Discover BACnet devices
         devices = bacnet_discovery.discover_devices()
-        with open(args.bacnet_devices_file, "w") as fp:
-            json.dump(devices, fp, indent=2, sort_keys=True)
+        # TODO: Dump the table.
 
         # Discover BACnet objects for identified devices
-
-        target_device_ids = config.get('bacnet_device_ids', args.target_devices)
+        target_device_ids = config.get('target_bacnet_devices', args.target_devices)
         if target_device_ids:
             target_devices = {dev_id: devices[int(dev_id)] for dev_id in target_device_ids}
         else:
             target_devices = devices
         device_objs = bacnet_discovery.discover_objects(target_devices)
-        with open(args.bacnet_objects_file, "w") as fp:
-            json.dump(device_objs, fp, indent=2, sort_keys=True)
 
         if args.register_brickserver:
             self.ds_if = BrickServer(config['brickserver']['hostname'],
@@ -115,7 +112,7 @@ class BacnetConn(object):
                                      config['brick_version'],
                                      )
         else:
-            self.ds_if = DummyServer() #TODO
+            self.ds_if = DummyDs() #TODO
 
         # Serialize the discovered resources into an RDF graph
         g = self.make_brick_graph(target_devices, device_objs)
@@ -125,6 +122,10 @@ class BacnetConn(object):
         # Register the identifeid devies and objects to Brick Server
         if args.register_brickserver:
             self.ds_if.register_graph(g)
+
+        self.sqlite_db.export_devices(args.bacnet_devices_file)
+        for device_id, objs in device_objs.items():
+            self.sqlite_db.export_objects(device_id, args.bacnet_objects_files_template.format(device_id))
 
     def update_uuids(self, g):
 
@@ -301,8 +302,8 @@ class BacnetConn(object):
         )
         args = parser.parse_args(sys.argv[2:])
         config = json.load(open(args.b2b_config))
-        config['bacnet_device_ids'] = config.get('bacnet_device_ids', args.target_devices)
-        assert config['bacnet_device_ids']
+        config['target_bacnet_devices'] = config.get('target_bacnet_devices', args.target_devices)
+        assert config['target_bacnet_devices']
 
         ds_if = BrickServer(config['brickserver']['hostname'],
                             config['brickserver']['jwt_token'],
