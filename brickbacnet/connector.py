@@ -50,11 +50,7 @@ class Connector(object):
         self.ds_if = ds_if
 
         self.logger.info("Initialized BACnet")
-
-        if clear_cache:
-            os.remove("sensor_uuid.json")
-
-        self.bacnet_dev_ids = config['bacnet_device_ids']
+        self.bacnet_dev_ids = config['target_bacnet_devices']
         self.sqlite_db = SqliteWrapper(config['sqlite_db'])
         # read device data from the SQLite database. Updates to device data can be handled without
         # restarting connector.
@@ -62,8 +58,7 @@ class Connector(object):
 
     def read_all_devices_forever(self):
         for dev_id in self.bacnet_dev_ids:
-            #dev = self.sqlite_db.read_device_properties(dev_id)
-            self.read_device_forever(dev_id)
+            self.read_device_forever(dev_id) # TODO: This should be threaded.
 
     def read_object(self, dev, obj_type, obj_instance, obj_property='presentValue'):
         value = self.bacnet.do_read(dev['addr'], obj_type, obj_instance, prop_id=obj_property)
@@ -80,25 +75,24 @@ class Connector(object):
     def read_device_once(self, dev_id):
         dev = self.sqlite_db.read_device_properties(dev_id)
         object_ids = dev["objects"]
-        #dev = self.bacnet_devs[dev_id]
-        #objs = self.bacnet_dev_objs[dev_id]
         for window_obj_ids in striding_window(object_ids, self.read_batch_size):
             datapoints = []
             for obj_instance in window_obj_ids:
+                obj = self.sqlite_db.read_obj_properties(device_id=dev_id, instance=obj_instance)
                 try:
-                    obj = self.sqlite_db.read_obj_properties(device_id=dev_id, instance=obj_instance)
                     datapoint = self.read_object(dev, obj['object_type'], obj_instance)
-                    #datapoint['src_id'] = make_src_id(dev_id, make_obj_id(obj['object_type'], obj['instance']))
-                    uuid = self.sqlite_db.find_obj_uuid(dev_id, obj_instance)
-                    assert uuid, 'UUID not found for the object {0} in device {1}'.format(obj_instance, dev_id)
-                    datapoint['uuid'] = uuid
-                    datapoint['object_type'] = obj['object_type']
                 except Exception as e:
-                    #TODO: Propert warning logging
                     if str(e).split(':')[-1] == 'invalid property for object type':
-                        logger.warning('Object {0} at Device {1} is not read because "{2}"'.format(
+                        self.logger.warning('Object {0} at Device {1} is not read because "{2}"'.format(
                             obj['isntance'], dev_id, e
                         ))
+                        datapoint = None
+                    else:
+                        raise e
+                uuid = self.sqlite_db.find_obj_uuid(dev_id, obj_instance)
+                assert uuid, 'UUID not found for the object {0} in device {1}'.format(obj_instance, dev_id)
+                datapoint['uuid'] = uuid
+                datapoint['object_type'] = obj['object_type']
                 datapoints.append(datapoint)
                 time.sleep(self.read_sleeptime)
             self.ds_if.put_timeseries_data(datapoints) # TODO: Make this async later.

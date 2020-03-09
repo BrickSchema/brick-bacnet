@@ -129,21 +129,11 @@ class SqliteWrapper():
                 "objects"    : objects
                }
 
-    def read_devices(self, version='v1'):
-        conn = sqlite3.connect(self.db)
-        c = conn.cursor()
-        res = c.execute("SELECT * FROM device_table").fetchall()
-        bp()
+    def get_device_ids(self, version='v1'):
+        with cursor_to_commit(self.db) as cursor:
+            res = cursor.execute(f"SELECT device_id FROM device_table where version = '{version}'").fetchall()
+        return [row[0] for row in res]
 
-        return {"version"    : res[0],
-                "device_id"  : res[1],
-                "description": res[2],
-                "jci_name"   : res[3],
-                "name"       : res[4],
-                "addr"       : res[5],
-                "max_apdu"   : res[6],
-                "vendor_id"  : res[7],
-               }
 
     def read_obj_properties(self, uuid=None, device_id=None, instance=None, version='v1'):
         if uuid is None and (instance is None or device_id is None):

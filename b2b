@@ -302,8 +302,11 @@ class BacnetConn(object):
         )
         args = parser.parse_args(sys.argv[2:])
         config = json.load(open(args.b2b_config))
-        config['target_bacnet_devices'] = config.get('target_bacnet_devices', args.target_devices)
-        assert config['target_bacnet_devices']
+        self.sqlite_db = SqliteWrapper(config['sqlite_db'])
+        if args.target_devices:
+            config['target_bacnet_devices'] = args.target_devices
+        else: # If not specified, read all devices.
+            config['target_bacnet_devices'] = self.sqlite_db.get_device_ids()
 
         ds_if = BrickServer(config['brickserver']['hostname'],
                             config['brickserver']['jwt_token'],
