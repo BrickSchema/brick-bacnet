@@ -58,7 +58,13 @@ class Connector(object):
 
     def read_all_devices_forever(self):
         for dev_id in self.bacnet_dev_ids:
-            self.read_device_forever(dev_id) # TODO: This should be threaded.
+            prev_time = time.time()
+            self.read_device_once(dev_id)
+            curr_time = time.time()
+            delta_time = curr_time - prev_time
+            if delta_time < self.min_interval:
+                print('wait: {0}'.format(self.min_interval - delta_time))
+                time.sleep(self.min_interval - delta_time)
 
     def read_object(self, dev, obj_type, obj_instance, obj_property='presentValue'):
         value = self.bacnet.do_read(dev['addr'], obj_type, obj_instance, prop_id=obj_property)
