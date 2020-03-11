@@ -21,7 +21,9 @@ A virtual BACnet device that can connect BACnet to Brick Server.
 3. `pip install -r requirements.txt`
 
 ## Update BACpypes for custom fields.
-TODO
+Your BACnet devices might have a custom ObjectProperty such as `JCI_NAME`. If you want to retrieve them, you have to add the information inside the `bacpypes` package as well.
+### Example
+Apply patch `configs/BACKPYPES_JCI.patch` to the installed bacpypes package. (usually at `<env path>/lib/python3.6/site-packages/bacpypes`. This lets the script read `JCI_NAME` property.
 
 ## (Optional): Install Brick Server.
 1. This is only necessary if you want to communicate with a Brick Server.
@@ -58,3 +60,8 @@ TODO
 2. Create `configs/b2b_config.json` based on `configs/b2b_config.json.template`.
 3. Run `b2b discovery --register-brickserver`` to automatically register all the discovered devices and objects in to the Brick Server.
 4. Run `b2b connector` to periodically push all the data to the Brick Server.
+
+
+## Additional References:
+1. OpenAgricultureFoundation's [bacnet wrapper](https://github.com/OpenAgricultureFoundation/openag-device-software/blob/830011c0669eb7dbfc3361dafbfa065ba6a6a98f/device/peripherals/modules/bacnet/bnet_wrapper.py)
+2. ReadProperty.py and WhoIsIAm.py in bacpypes [samples](https://github.com/JoelBender/bacpypes/tree/master/samples)
