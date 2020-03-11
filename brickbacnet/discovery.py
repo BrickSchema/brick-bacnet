@@ -179,7 +179,7 @@ class BacnetDiscovery(BIPSimpleApplication):
                 self.logger.warning(f'Device {device_id} does not have any objects.')
                 continue
             # read properties of the objects
-            for obj_idx in range(1, int(dev["obj_count"]) + 1)[0:10]: #TODO: Remove this
+            for obj_idx in range(1, int(dev["obj_count"]) + 1): #TODO: Remove this
                 time.sleep(0.05) # TODO: Configure this.
                 obj = self.do_read(
                     dev["addr"], dev["device_identifier"], "objectList", obj_idx

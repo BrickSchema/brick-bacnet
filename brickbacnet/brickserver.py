@@ -1,4 +1,5 @@
 import requests
+import time
 from collections import defaultdict
 
 from pdb import set_trace as bp
@@ -80,18 +81,22 @@ class BrickServer(DsIface):
         object_types = set([datapoint['object_type'] for datapoint in datapoints])
         datapoints_per_type = defaultdict(list)
         for dp in datapoints:
-            datapoints_per_type[self.type_map[dp['object_type']]].append(
-                [dp['uuid'], dp['timestamp'], dp['value']]
-            )
+            obj_type = self.type_map.get(dp['object_type'], None)
+            if not obj_type:
+                continue
+            datapoints_per_type[obj_type].append([dp['uuid'], dp['timestamp'], dp['value']])
         datapoints_per_type = dict(datapoints_per_type)
         data_per_type = {
         }
+        t0 = time.time()
         for data_type, dps in datapoints_per_type.items():
             body = {
                 'columns': ['uuid', 'timestamp'] + [data_type],
                 'data': dps
             }
             resp = self._post(self.ts_url, json=body)
+        t1 = time.time()
+        print('post took: {0} seconds'.format(t1 - t0))
 
     def get_timeseries_metadata(self, sensor):
         raise NotImplementedError('Method not implemented!')

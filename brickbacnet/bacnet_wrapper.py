@@ -16,22 +16,43 @@ from bacpypes.apdu import ReadPropertyRequest, \
 from bacpypes.constructeddata import Array, Any, AnyAtomic
 from bacpypes.primitivedata import Null, Atomic, Boolean, Unsigned, Integer, \
     Real, Double, OctetString, CharacterString, BitString, Date, Time, ObjectIdentifier, Enumerated
+from bacpypes.primitivedata import ObjectType
 from bacpypes.local.device import LocalDeviceObject
 from bacpypes.app import BIPSimpleApplication
 from bacpypes.object import get_datatype
 from bacpypes.task import TaskManager
+from bacpypes.pdu import Address
 
 from .common import make_obj_id
+
+def get_port_from_ini(ini_file):
+    args = ConfigArgumentParser().parse_args(["--ini", ini_file])
+    addr = Address(args.ini.address)
+    return addr.addrPort
+
+def get_static_object_types():
+    obj_types = ObjectType.enumerations.keys()
+    non_dynamic_objects = [obj_type for obj_type in obj_types
+                           if not get_datatype(obj_type, 'presentValue')]
+    return non_dynamic_objects
+
 
 class BacnetWrapper(BIPSimpleApplication):
     """ The class that wraps over the underlying bacnet library (bacpypes).
         Provide simple read and write functions.
     """
 
-    def __init__(self, ini_file):
+    def __init__(self, ini_file, overriding_port: int=None):
         self.args = ConfigArgumentParser().parse_args(["--ini", ini_file])
+        #addr = Address(self.args.ini.address)
+        #if overriding_port:
+        #    addr.addrPort = overriding_port
+        #print('Address: {0}'.format(addr.addrPort))
+        if overriding_port:
+            ip, port = self.args.ini['address'].split(':')
+            self.args.ini['address'] = ip + ':' + str(overriding_port)
         self.this_device = LocalDeviceObject(ini=self.args.ini)
-        BIPSimpleApplication.__init__(self, self.this_device, self.args.ini.address)
+        BIPSimpleApplication.__init__(self, self.this_device, self.args.ini['address'])
         self.taskman = TaskManager()
         self.datatype_map = {
                 'b': Boolean,
@@ -71,7 +92,7 @@ class BacnetWrapper(BIPSimpleApplication):
         obj_id = ObjectIdentifier(obj_id).value
         datatype = get_datatype(obj_id[0], prop_id)
         if not datatype:
-            raise Exception("%s: invalid property for object type"%prop_id)
+            raise Exception(f"{prop_id}:invalid property for object type '{obj_type}'")
 
         # build a request
         request = ReadPropertyRequest(
