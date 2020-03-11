@@ -1,0 +1,20 @@
+{
+    "bacpypes_ini": "configs/BACpypes.ini",
+    "object_custom_fields": {
+        "jci_name": "jciName"
+    },
+    "property_filters": ["addr", "max_apdu", "segmentationSupported", "vendor_id", "index", "object_identifier"],
+    "brickserver": {
+        "jwt_token": "YOUR_TOKEN_FROM_YOUR_BRICK_SERVER",
+        "hostname": "HOSTNAME_TO_YOUR_BRICK_SERVER"
+    },
+    "connector": {
+        "logdir": "logs",
+        "min_interval": 300,
+        "read_sleeptime": 0.02,
+        "num_rpc_workers": 10,
+        "read_batch_size": 100
+    },
+    "sqlite_db": "sqlite.db",
+    "brick_version": "1.0.3"
+}
