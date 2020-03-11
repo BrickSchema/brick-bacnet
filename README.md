@@ -12,7 +12,7 @@ A virtual BACnet device that can connect BACnet to Brick Server.
 - This code has been tested on Ubuntu. It may work for other OSes without guarantee.
 - This tool assumes BACnet/IP protocol though it can potentially work with BACnet/MSTP. Please let the maintainers know if you need to use this for BACnet/MSTP.
 - You need a machine that can communicate with the BACnet devices in the BACnet network. It's oftens implemented as a subnet.
-
+    - If you need to continously post the data to an endpoint like Brick Server, your machine should be able to reach the endpoint as well.
 
 # Installation
 ## Install necessary packages
