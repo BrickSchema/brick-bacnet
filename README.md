@@ -1,6 +1,6 @@
 BACnet2Brick
 ------------
-A virtual BACnet device that can connect BACnet to Brick Server.
+A virtual BACnet device that can connect your BACnet to a Brick Server.
 
 # Features
 - Discovery of bacnet devices and objects.
